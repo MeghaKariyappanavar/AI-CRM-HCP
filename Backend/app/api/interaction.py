@@ -2,31 +2,41 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
+
 from app.schemas.interaction import (
     InteractionCreate,
-    InteractionResponse,
+    InteractionResponse
 )
+
 from app.services.interaction_service import InteractionService
 
 router = APIRouter(
     prefix="/api/interactions",
-    tags=["Interactions"]
+    tags=["Interaction"]
 )
 
 
-@router.post("/", response_model=InteractionResponse)
-def create_interaction(
+@router.post(
+    "/",
+    response_model=InteractionResponse
+)
+def save_interaction(
     interaction: InteractionCreate,
     db: Session = Depends(get_db)
 ):
-    return InteractionService.create_interaction(
+
+    return InteractionService.save_interaction(
         db,
         interaction
     )
 
 
-@router.get("/", response_model=list[InteractionResponse])
+@router.get(
+    "/",
+    response_model=list[InteractionResponse]
+)
 def get_all_interactions(
     db: Session = Depends(get_db)
 ):
+
     return InteractionService.get_all_interactions(db)

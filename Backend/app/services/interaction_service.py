@@ -7,24 +7,58 @@ from app.schemas.interaction import InteractionCreate
 class InteractionService:
 
     @staticmethod
-    def create_interaction(
+    def save_interaction(
         db: Session,
-        interaction: InteractionCreate
+        data: InteractionCreate
     ):
 
-        new_interaction = Interaction(
-            **interaction.model_dump()
+        products = data.products_discussed
+
+        if isinstance(products, list):
+            products = ", ".join(products)
+
+        interaction = Interaction(
+
+            hcp_id=data.hcp_id,
+
+            # doctor_name is NOT NULL in the DB. The AI-chat flow can
+            # theoretically return an empty name, so fall back rather
+            # than letting the insert fail with an IntegrityError.
+            doctor_name=data.doctor_name or "Unknown",
+
+            mode=data.type,
+
+            discussion=data.discussion,
+
+            products_discussed=products,
+
+            sample_given=data.sample_given,
+
+            followup_date=(
+                str(data.followup_date)
+                if data.followup_date
+                else None
+            ),
+
+            summary=data.summary,
+
+            notes=data.remarks,
+
+            next_action=data.next_followup,
+
+            sentiment=data.sentiment
+
         )
 
-        db.add(new_interaction)
-        db.commit()
-        db.refresh(new_interaction)
+        db.add(interaction)
 
-        return new_interaction
+        db.commit()
+
+        db.refresh(interaction)
+
+        return interaction
 
     @staticmethod
-    def get_all_interactions(
-        db: Session
-    ):
+    def get_all_interactions(db: Session):
 
         return db.query(Interaction).all()
