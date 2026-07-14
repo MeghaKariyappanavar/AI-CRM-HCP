@@ -1,19 +1,20 @@
 from langgraph.graph import StateGraph
 from langgraph.graph import END
 
+
 from app.agents.state import CRMState
 
 from app.tools.log_interaction import log_interaction
+from app.tools.search_hcp import search_hcp
 
 
 def detect_intent(state: CRMState):
 
-    message = state["message"]
+    message = state["message"].lower()
 
-    if "meeting" in message.lower():
-
+    if "history" in message or "search" in message:
         return {
-            "intent": "log_interaction"
+            "intent": "search_hcp"
         }
 
     return {
@@ -23,16 +24,25 @@ def detect_intent(state: CRMState):
 
 def execute_tool(state: CRMState):
 
-    result = log_interaction.invoke(
-        {
-            "conversation": state["message"]
-        }
-    )
+    if state["intent"] == "search_hcp":
+
+        result = search_hcp.invoke(
+            {
+                "query": state["message"]
+            }
+        )
+
+    else:
+
+        result = log_interaction.invoke(
+            {
+                "conversation": state["message"]
+            }
+        )
 
     return {
         "result": result
     }
-
 
 builder = StateGraph(CRMState)
 
