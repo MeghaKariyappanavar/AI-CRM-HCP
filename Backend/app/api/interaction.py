@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.models.interaction import Interaction
 from app.schemas.interaction import (
     InteractionCreate,
     InteractionResponse,
 )
+from app.services.interaction_service import InteractionService
 
 router = APIRouter(
     prefix="/api/interactions",
@@ -19,12 +19,14 @@ def create_interaction(
     interaction: InteractionCreate,
     db: Session = Depends(get_db)
 ):
-    new_interaction = Interaction(
-        **interaction.model_dump()
+    return InteractionService.create_interaction(
+        db,
+        interaction
     )
 
-    db.add(new_interaction)
-    db.commit()
-    db.refresh(new_interaction)
 
-    return new_interaction
+@router.get("/", response_model=list[InteractionResponse])
+def get_all_interactions(
+    db: Session = Depends(get_db)
+):
+    return InteractionService.get_all_interactions(db)
