@@ -1,36 +1,62 @@
-from typing import TypedDict
+from langgraph.graph import StateGraph
+from langgraph.graph import END
 
-from langgraph.graph import StateGraph, END
+from app.agents.state import CRMState
 
 from app.tools.log_interaction import log_interaction
 
 
-class CRMState(TypedDict):
-    message: str
-    result: str
+def detect_intent(state: CRMState):
+
+    message = state["message"]
+
+    if "meeting" in message.lower():
+
+        return {
+            "intent": "log_interaction"
+        }
+
+    return {
+        "intent": "log_interaction"
+    }
 
 
-def log_node(state: CRMState):
+def execute_tool(state: CRMState):
 
-    output = log_interaction.invoke(
+    result = log_interaction.invoke(
         {
             "conversation": state["message"]
         }
     )
 
     return {
-        "result": output
+        "result": result
     }
 
 
 builder = StateGraph(CRMState)
 
-builder.add_node("log_interaction", log_node)
+builder.add_node(
+    "DetectIntent",
+    detect_intent
+)
 
-builder.set_entry_point("log_interaction")
+builder.add_node(
+    "ExecuteTool",
+    execute_tool
+)
+
+builder.set_entry_point(
+    "DetectIntent"
+)
 
 builder.add_edge(
-    "log_interaction",
+    "DetectIntent",
+    "ExecuteTool"
+)
+
+builder.add_edge(
+    "ExecuteTool",
     END
 )
 
