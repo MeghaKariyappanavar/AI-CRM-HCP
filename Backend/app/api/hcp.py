@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.models.hcp import HCP
 from app.schemas.hcp import HCPCreate, HCPResponse
+from app.services.hcp_service import HCPService
 
 router = APIRouter(
     prefix="/api/hcps",
@@ -16,17 +16,11 @@ def create_hcp(
     hcp: HCPCreate,
     db: Session = Depends(get_db)
 ):
-    new_hcp = HCP(
-        doctor_name=hcp.doctor_name,
-        specialization=hcp.specialization,
-        hospital=hcp.hospital,
-        city=hcp.city,
-        phone=hcp.phone,
-        email=hcp.email
-    )
+    return HCPService.create_hcp(db, hcp)
 
-    db.add(new_hcp)
-    db.commit()
-    db.refresh(new_hcp)
 
-    return new_hcp
+@router.get("/", response_model=list[HCPResponse])
+def get_all_hcps(
+    db: Session = Depends(get_db)
+):
+    return HCPService.get_all_hcps(db)
