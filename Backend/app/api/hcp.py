@@ -1,7 +1,10 @@
+from typing import List
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
+from app.models.hcp import HCP
 from app.schemas.hcp import HCPCreate, HCPResponse
 from app.services.hcp_service import HCPService
 
@@ -19,8 +22,8 @@ def create_hcp(
     return HCPService.create_hcp(db, hcp)
 
 
-@router.get("/", response_model=list[HCPResponse])
-def get_all_hcps(
+@router.get("/", response_model=List[HCPResponse])
+def get_hcps(
     db: Session = Depends(get_db)
 ):
-    return HCPService.get_all_hcps(db)
+    return db.query(HCP).all()

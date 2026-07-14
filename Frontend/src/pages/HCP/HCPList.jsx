@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import {
     Container,
     Typography,
@@ -5,32 +8,57 @@ import {
     CardContent,
     Grid,
     Button,
-    TextField
+    TextField,
+    CircularProgress
 } from "@mui/material";
 
-import { useNavigate } from "react-router-dom";
-
-const doctors = [
-    {
-        id: 1,
-        name: "Dr Rahul",
-        specialization: "Cardiologist"
-    },
-    {
-        id: 2,
-        name: "Dr Meena",
-        specialization: "Neurologist"
-    },
-    {
-        id: 3,
-        name: "Dr Arjun",
-        specialization: "Orthopedic"
-    }
-];
+import { getHCPs } from "../../services/hcpService";
 
 export default function HCPList() {
 
     const navigate = useNavigate();
+
+    const [doctors, setDoctors] = useState([]);
+    const [search, setSearch] = useState("");
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        loadDoctors();
+    }, []);
+
+    const loadDoctors = async () => {
+        try {
+
+            const data = await getHCPs();
+
+            console.log("API Response:", data);
+
+            setDoctors(data);
+
+        } catch (err) {
+
+            console.error(err);
+
+        } finally {
+
+            setLoading(false);
+
+        }
+    };
+
+    const filteredDoctors = doctors.filter((doctor) =>
+        doctor.doctor_name
+            ?.toLowerCase()
+            .includes(search.toLowerCase())
+    );
+
+    if (loading) {
+        return (
+            <Container sx={{ mt: 5, textAlign: "center" }}>
+                <CircularProgress />
+            </Container>
+        );
+    }
 
     return (
 
@@ -45,67 +73,90 @@ export default function HCPList() {
             </Typography>
 
             <TextField
-                label="Search Doctor"
                 fullWidth
+                label="Search Doctor"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 sx={{ mb: 4 }}
             />
 
             <Grid container spacing={3}>
 
-                {doctors.map((doctor) => (
+                {filteredDoctors.length > 0 ? (
 
-                    <Grid
-                        item
-                        xs={12}
-                        key={doctor.id}
-                    >
+                    filteredDoctors.map((doctor) => (
 
-                        <Card>
+                        <Grid
+                            item
+                            xs={12}
+                            key={doctor.id}
+                        >
 
-                            <CardContent
-                                sx={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center"
-                                }}
-                            >
+                            <Card>
 
-                                <div>
-
-                                    <Typography
-                                        variant="h6"
-                                    >
-                                        {doctor.name}
-                                    </Typography>
-
-                                    <Typography
-                                        color="text.secondary"
-                                    >
-                                        {doctor.specialization}
-                                    </Typography>
-
-                                </div>
-
-                                <Button
-                                    variant="contained"
-                                    onClick={() =>
-                                        navigate("/interaction")
-                                    }
+                                <CardContent
+                                    sx={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center"
+                                    }}
                                 >
-                                    Log Interaction
-                                </Button>
 
-                            </CardContent>
+                                    <div>
 
-                        </Card>
+                                        <Typography variant="h6">
+                                            {doctor.doctor_name}
+                                        </Typography>
+
+                                        <Typography color="text.secondary">
+                                            {doctor.specialization}
+                                        </Typography>
+
+                                        <Typography color="text.secondary">
+                                            {doctor.hospital}
+                                        </Typography>
+
+                                        <Typography color="text.secondary">
+                                            {doctor.city}
+                                        </Typography>
+
+                                    </div>
+
+                                    <Button
+                                        variant="contained"
+                                        onClick={() =>
+                                            navigate("/interaction", {
+                                                state: { doctor }
+                                            })
+                                        }
+                                    >
+                                        Log Interaction
+                                    </Button>
+
+                                </CardContent>
+
+                            </Card>
+
+                        </Grid>
+
+                    ))
+
+                ) : (
+
+                    <Grid item xs={12}>
+
+                        <Typography align="center">
+                            No Healthcare Professionals Found
+                        </Typography>
 
                     </Grid>
 
-                ))}
+                )}
 
             </Grid>
 
         </Container>
 
     );
+
 }
