@@ -1,7 +1,10 @@
 from fastapi import FastAPI
 
 from app.database.database import Base, engine
+
 from app.models.hcp import HCP
+from app.models.interaction import Interaction
+
 from app.api.hcp import router as hcp_router
 
 Base.metadata.create_all(bind=engine)
