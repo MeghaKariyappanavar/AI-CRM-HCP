@@ -1,10 +1,10 @@
 from datetime import datetime
 
 from sqlalchemy import Column
-from sqlalchemy import Integer
-from sqlalchemy import String
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
+from sqlalchemy import Integer
+from sqlalchemy import String
 
 from app.database.database import Base
 
@@ -14,13 +14,24 @@ class Interaction(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
+    # HCP Reference
     hcp_id = Column(
         Integer,
         ForeignKey("hcp.id"),
         nullable=False
     )
 
-    mode = Column(String(20))
+    # AI Extracted Doctor Name
+    doctor_name = Column(
+        String(100),
+        nullable=False
+    )
+
+    # Interaction Details
+    mode = Column(
+        String(20),
+        nullable=False
+    )  # Chat / Form
 
     discussion = Column(String(1000))
 
@@ -30,6 +41,7 @@ class Interaction(Base):
 
     followup_date = Column(String(50))
 
+    # AI Generated Fields
     summary = Column(String(1000))
 
     notes = Column(String(1000))
@@ -38,7 +50,9 @@ class Interaction(Base):
 
     sentiment = Column(String(100))
 
+    # Audit
     created_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=datetime.utcnow,
+        nullable=False
     )
