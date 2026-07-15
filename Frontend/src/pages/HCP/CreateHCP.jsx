@@ -2,18 +2,23 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
-    Container,
-    Paper,
-    Typography,
-    Grid,
-    TextField,
+    Box,
     Button,
-    Box
+    CircularProgress,
+    Container,
+    Grid,
+    Paper,
+    TextField,
+    Typography
 } from "@mui/material";
+
+import { createHCP } from "../../services/hcpService";
 
 export default function CreateHCP() {
 
     const navigate = useNavigate();
+
+    const [loading, setLoading] = useState(false);
 
     const [form, setForm] = useState({
         doctor_name: "",
@@ -25,16 +30,74 @@ export default function CreateHCP() {
     });
 
     const handleChange = (e) => {
-        setForm({
-            ...form,
+        setForm((prev) => ({
+            ...prev,
             [e.target.name]: e.target.value
-        });
+        }));
+    };
+
+    const handleSave = async () => {
+
+        if (!form.doctor_name.trim()) {
+            alert("Doctor Name is required.");
+            return;
+        }
+
+        if (!form.specialization.trim()) {
+            alert("Specialization is required.");
+            return;
+        }
+
+        if (!form.hospital.trim()) {
+            alert("Hospital is required.");
+            return;
+        }
+
+        try {
+
+            setLoading(true);
+
+            const response = await createHCP(form);
+
+            console.log("Created HCP:", response);
+
+            alert("Healthcare Professional created successfully.");
+
+            navigate("/hcps", {
+                state: {
+                    refresh: true
+                }
+            });
+
+        } catch (error) {
+
+            console.error("Create HCP Error:", error);
+
+            if (error.response) {
+                console.error(error.response.data);
+                alert(JSON.stringify(error.response.data));
+            } else {
+                alert("Unable to connect to the server.");
+            }
+
+        } finally {
+
+            setLoading(false);
+
+        }
     };
 
     return (
-        <Container maxWidth="md" sx={{ mt: 4 }}>
 
-            <Paper elevation={3} sx={{ p: 4 }}>
+        <Container
+            maxWidth="md"
+            sx={{ mt: 4, mb: 4 }}
+        >
+
+            <Paper
+                elevation={3}
+                sx={{ p: 4 }}
+            >
 
                 <Typography
                     variant="h4"
@@ -56,33 +119,33 @@ export default function CreateHCP() {
                     <Grid item xs={12} md={6}>
                         <TextField
                             fullWidth
+                            required
                             label="Doctor Name"
                             name="doctor_name"
                             value={form.doctor_name}
                             onChange={handleChange}
-                            required
                         />
                     </Grid>
 
                     <Grid item xs={12} md={6}>
                         <TextField
                             fullWidth
+                            required
                             label="Specialization"
                             name="specialization"
                             value={form.specialization}
                             onChange={handleChange}
-                            required
                         />
                     </Grid>
 
                     <Grid item xs={12}>
                         <TextField
                             fullWidth
+                            required
                             label="Hospital"
                             name="hospital"
                             value={form.hospital}
                             onChange={handleChange}
-                            required
                         />
                     </Grid>
 
@@ -121,24 +184,38 @@ export default function CreateHCP() {
 
                 <Box
                     sx={{
+                        mt: 4,
                         display: "flex",
                         justifyContent: "flex-end",
-                        gap: 2,
-                        mt: 4
+                        gap: 2
                     }}
                 >
 
                     <Button
                         variant="outlined"
                         onClick={() => navigate("/hcps")}
+                        disabled={loading}
                     >
                         Cancel
                     </Button>
 
                     <Button
                         variant="contained"
+                        onClick={handleSave}
+                        disabled={loading}
                     >
-                        Save
+                        {loading ? (
+                            <>
+                                <CircularProgress
+                                    size={20}
+                                    color="inherit"
+                                    sx={{ mr: 1 }}
+                                />
+                                Saving...
+                            </>
+                        ) : (
+                            "Save"
+                        )}
                     </Button>
 
                 </Box>

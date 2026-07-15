@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 import {
+    Box,
     Container,
     Typography,
     Card,
@@ -17,6 +18,7 @@ import { getHCPs } from "../../services/hcpService";
 export default function HCPList() {
 
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [doctors, setDoctors] = useState([]);
     const [search, setSearch] = useState("");
@@ -24,7 +26,7 @@ export default function HCPList() {
 
     useEffect(() => {
         loadDoctors();
-    }, []);
+    }, [location.state]);
 
     const loadDoctors = async () => {
         try {
@@ -64,13 +66,30 @@ export default function HCPList() {
 
         <Container sx={{ mt: 4 }}>
 
+        <Box
+            sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 3
+            }}
+        >
             <Typography
                 variant="h4"
                 fontWeight="bold"
-                gutterBottom
             >
                 Healthcare Professionals
             </Typography>
+
+            <Button
+                variant="contained"
+                color="success"
+                size="large"
+                onClick={() => navigate("/hcp/create")}
+            >
+                + Add HCP
+            </Button>
+        </Box>
 
             <TextField
                 fullWidth
