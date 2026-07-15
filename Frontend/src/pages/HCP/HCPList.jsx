@@ -3,17 +3,21 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 import {
     Box,
-    Container,
-    Typography,
+    Button,
     Card,
     CardContent,
+    CircularProgress,
+    Container,
     Grid,
-    Button,
+    Stack,
     TextField,
-    CircularProgress
+    Typography
 } from "@mui/material";
 
-import { getHCPs } from "../../services/hcpService";
+import {
+    getHCPs,
+    deleteHCP
+} from "../../services/hcpService";
 
 export default function HCPList() {
 
@@ -29,23 +33,53 @@ export default function HCPList() {
     }, [location.state]);
 
     const loadDoctors = async () => {
+
         try {
+
+            setLoading(true);
 
             const data = await getHCPs();
 
-            console.log("API Response:", data);
+            console.log("HCP Response:", data);
 
             setDoctors(data);
 
-        } catch (err) {
+        } catch (error) {
 
-            console.error(err);
+            console.error(error);
 
         } finally {
 
             setLoading(false);
 
         }
+
+    };
+
+    const handleDelete = async (id) => {
+
+        const confirmed = window.confirm(
+            "Are you sure you want to delete this Healthcare Professional?"
+        );
+
+        if (!confirmed) return;
+
+        try {
+
+            await deleteHCP(id);
+
+            alert("Healthcare Professional deleted successfully.");
+
+            loadDoctors();
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert("Unable to delete Healthcare Professional.");
+
+        }
+
     };
 
     const filteredDoctors = doctors.filter((doctor) =>
@@ -56,7 +90,7 @@ export default function HCPList() {
 
     if (loading) {
         return (
-            <Container sx={{ mt: 5, textAlign: "center" }}>
+            <Container sx={{ mt: 6, textAlign: "center" }}>
                 <CircularProgress />
             </Container>
         );
@@ -64,32 +98,33 @@ export default function HCPList() {
 
     return (
 
-        <Container sx={{ mt: 4 }}>
+        <Container maxWidth="lg" sx={{ mt: 4 }}>
 
-        <Box
-            sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                mb: 3
-            }}
-        >
-            <Typography
-                variant="h4"
-                fontWeight="bold"
+            <Box
+                sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 4
+                }}
             >
-                Healthcare Professionals
-            </Typography>
 
-            <Button
-                variant="contained"
-                color="success"
-                size="large"
-                onClick={() => navigate("/hcp/create")}
-            >
-                + Add HCP
-            </Button>
-        </Box>
+                <Typography
+                    variant="h4"
+                    fontWeight="bold"
+                >
+                    Healthcare Professionals
+                </Typography>
+
+                <Button
+                    variant="contained"
+                    color="success"
+                    onClick={() => navigate("/hcp/create")}
+                >
+                    + Add HCP
+                </Button>
+
+            </Box>
 
             <TextField
                 fullWidth
@@ -111,46 +146,92 @@ export default function HCPList() {
                             key={doctor.id}
                         >
 
-                            <Card>
+                            <Card elevation={3}>
 
-                                <CardContent
-                                    sx={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center"
-                                    }}
-                                >
+                                <CardContent>
 
-                                    <div>
-
-                                        <Typography variant="h6">
-                                            {doctor.doctor_name}
-                                        </Typography>
-
-                                        <Typography color="text.secondary">
-                                            {doctor.specialization}
-                                        </Typography>
-
-                                        <Typography color="text.secondary">
-                                            {doctor.hospital}
-                                        </Typography>
-
-                                        <Typography color="text.secondary">
-                                            {doctor.city}
-                                        </Typography>
-
-                                    </div>
-
-                                    <Button
-                                        variant="contained"
-                                        onClick={() =>
-                                            navigate("/interaction", {
-                                                state: { doctor }
-                                            })
-                                        }
+                                    <Box
+                                        sx={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                            flexWrap: "wrap",
+                                            gap: 2
+                                        }}
                                     >
-                                        Log Interaction
-                                    </Button>
+
+                                        <Box>
+
+                                            <Typography
+                                                variant="h6"
+                                                fontWeight="bold"
+                                            >
+                                                {doctor.doctor_name}
+                                            </Typography>
+
+                                            <Typography color="text.secondary">
+                                                <strong>Specialization:</strong>{" "}
+                                                {doctor.specialization}
+                                            </Typography>
+
+                                            <Typography color="text.secondary">
+                                                <strong>Hospital:</strong>{" "}
+                                                {doctor.hospital}
+                                            </Typography>
+
+                                            <Typography color="text.secondary">
+                                                <strong>City:</strong>{" "}
+                                                {doctor.city}
+                                            </Typography>
+
+                                        </Box>
+
+                                        <Stack
+                                            direction="row"
+                                            spacing={1}
+                                        >
+
+                                            <Button
+                                                variant="outlined"
+                                                onClick={() =>
+                                                    navigate(
+                                                        `/hcp/edit/${doctor.id}`,
+                                                        {
+                                                            state: { doctor }
+                                                        }
+                                                    )
+                                                }
+                                            >
+                                                Edit
+                                            </Button>
+
+                                            <Button
+                                                variant="outlined"
+                                                color="error"
+                                                onClick={() =>
+                                                    handleDelete(doctor.id)
+                                                }
+                                            >
+                                                Delete
+                                            </Button>
+
+                                            <Button
+                                                variant="contained"
+                                                onClick={() =>
+                                                    navigate(
+                                                        "/interaction",
+                                                        {
+                                                            state: { doctor }
+                                                        }
+                                                    )
+                                                }
+                                            >
+                                                Log Interaction
+                                            </Button>
+
+                                        </Stack>
+
+                                    </Box>
 
                                 </CardContent>
 
@@ -164,7 +245,10 @@ export default function HCPList() {
 
                     <Grid item xs={12}>
 
-                        <Typography align="center">
+                        <Typography
+                            align="center"
+                            variant="h6"
+                        >
                             No Healthcare Professionals Found
                         </Typography>
 
