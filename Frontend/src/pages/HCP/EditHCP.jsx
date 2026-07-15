@@ -2,274 +2,137 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
+    Alert,
     Box,
     Button,
+    Card,
+    CardContent,
     CircularProgress,
-    Container,
     Grid,
-    Paper,
+    Stack,
     TextField,
     Typography
 } from "@mui/material";
 
-import {
-    getHCP,
-    updateHCP
-} from "../../services/hcpService";
+import { getHCP, updateHCP } from "../../services/hcpService";
+
+const emptyForm = {
+    doctor_name: "",
+    specialization: "",
+    hospital: "",
+    city: "",
+    phone: "",
+    email: ""
+};
 
 export default function EditHCP() {
-
-    const navigate = useNavigate();
     const { id } = useParams();
-
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-
-    const [form, setForm] = useState({
-        doctor_name: "",
-        specialization: "",
-        hospital: "",
-        city: "",
-        phone: "",
-        email: ""
-    });
+    const [error, setError] = useState("");
+    const [form, setForm] = useState(emptyForm);
 
     useEffect(() => {
+        const loadHCP = async () => {
+            try {
+                const data = await getHCP(id);
+                setForm({
+                    doctor_name: data.doctor_name ?? "",
+                    specialization: data.specialization ?? "",
+                    hospital: data.hospital ?? "",
+                    city: data.city ?? "",
+                    phone: data.phone ?? "",
+                    email: data.email ?? ""
+                });
+            } catch (err) {
+                setError("Unable to load the HCP record.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
         loadHCP();
-    }, []);
+    }, [id]);
 
-    const loadHCP = async () => {
-
-        try {
-
-            const data = await getHCP(id);
-
-            setForm({
-                doctor_name: data.doctor_name ?? "",
-                specialization: data.specialization ?? "",
-                hospital: data.hospital ?? "",
-                city: data.city ?? "",
-                phone: data.phone ?? "",
-                email: data.email ?? ""
-            });
-
-        } catch (error) {
-
-            console.error(error);
-
-            alert("Unable to load Healthcare Professional.");
-
-        } finally {
-
-            setLoading(false);
-
-        }
-
-    };
-
-    const handleChange = (e) => {
-
-        setForm((prev) => ({
-            ...prev,
-            [e.target.name]: e.target.value
-        }));
-
+    const handleChange = (event) => {
+        const { name, value } = event.target;
+        setForm((current) => ({ ...current, [name]: value }));
     };
 
     const handleUpdate = async () => {
-
         if (!form.doctor_name.trim()) {
-            alert("Doctor Name is required.");
+            setError("Doctor name is required.");
             return;
         }
 
-        if (!form.specialization.trim()) {
-            alert("Specialization is required.");
-            return;
-        }
-
-        if (!form.hospital.trim()) {
-            alert("Hospital is required.");
-            return;
-        }
+        setError("");
+        setSaving(true);
 
         try {
-
-            setSaving(true);
-
             await updateHCP(id, form);
-
-            alert("Healthcare Professional updated successfully.");
-
-            navigate("/hcps", {
-                state: {
-                    refresh: true
-                }
-            });
-
-        } catch (error) {
-
-            console.error(error);
-
-            if (error.response) {
-                alert(JSON.stringify(error.response.data));
-            } else {
-                alert("Unable to connect to the server.");
-            }
-
+            navigate("/hcps");
+        } catch (err) {
+            setError("Unable to update the HCP record.");
         } finally {
-
             setSaving(false);
-
         }
-
     };
 
     if (loading) {
         return (
-            <Container sx={{ mt: 5, textAlign: "center" }}>
+            <Box sx={{ display: "grid", placeItems: "center", py: 8 }}>
                 <CircularProgress />
-            </Container>
+            </Box>
         );
     }
 
     return (
+        <Card>
+            <CardContent>
+                <Stack spacing={3}>
+                    <Box>
+                        <Typography variant="h4" fontWeight={800} gutterBottom>
+                            Edit healthcare professional
+                        </Typography>
+                        <Typography color="text.secondary">
+                            Update the profile details and keep the list current.
+                        </Typography>
+                    </Box>
 
-        <Container
-            maxWidth="md"
-            sx={{ mt: 4, mb: 4 }}
-        >
+                    {error && <Alert severity="error">{error}</Alert>}
 
-            <Paper
-                elevation={3}
-                sx={{ p: 4 }}
-            >
-
-                <Typography
-                    variant="h4"
-                    fontWeight="bold"
-                    gutterBottom
-                >
-                    Edit Healthcare Professional
-                </Typography>
-
-                <Typography
-                    color="text.secondary"
-                    sx={{ mb: 4 }}
-                >
-                    Update Healthcare Professional details.
-                </Typography>
-
-                <Grid container spacing={3}>
-
-                    <Grid item xs={12} md={6}>
-                        <TextField
-                            fullWidth
-                            required
-                            label="Doctor Name"
-                            name="doctor_name"
-                            value={form.doctor_name}
-                            onChange={handleChange}
-                        />
+                    <Grid container spacing={3}>
+                        <Grid item xs={12} md={6}>
+                            <TextField fullWidth required label="Doctor name" name="doctor_name" value={form.doctor_name} onChange={handleChange} />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <TextField fullWidth label="Specialization" name="specialization" value={form.specialization} onChange={handleChange} />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <TextField fullWidth label="Hospital" name="hospital" value={form.hospital} onChange={handleChange} />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <TextField fullWidth label="City" name="city" value={form.city} onChange={handleChange} />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <TextField fullWidth label="Phone" name="phone" value={form.phone} onChange={handleChange} />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <TextField fullWidth label="Email" type="email" name="email" value={form.email} onChange={handleChange} />
+                        </Grid>
                     </Grid>
 
-                    <Grid item xs={12} md={6}>
-                        <TextField
-                            fullWidth
-                            required
-                            label="Specialization"
-                            name="specialization"
-                            value={form.specialization}
-                            onChange={handleChange}
-                        />
-                    </Grid>
-
-                    <Grid item xs={12}>
-                        <TextField
-                            fullWidth
-                            required
-                            label="Hospital"
-                            name="hospital"
-                            value={form.hospital}
-                            onChange={handleChange}
-                        />
-                    </Grid>
-
-                    <Grid item xs={12} md={6}>
-                        <TextField
-                            fullWidth
-                            label="City"
-                            name="city"
-                            value={form.city}
-                            onChange={handleChange}
-                        />
-                    </Grid>
-
-                    <Grid item xs={12} md={6}>
-                        <TextField
-                            fullWidth
-                            label="Phone"
-                            name="phone"
-                            value={form.phone}
-                            onChange={handleChange}
-                        />
-                    </Grid>
-
-                    <Grid item xs={12}>
-                        <TextField
-                            fullWidth
-                            type="email"
-                            label="Email"
-                            name="email"
-                            value={form.email}
-                            onChange={handleChange}
-                        />
-                    </Grid>
-
-                </Grid>
-
-                <Box
-                    sx={{
-                        mt: 4,
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        gap: 2
-                    }}
-                >
-
-                    <Button
-                        variant="outlined"
-                        onClick={() => navigate("/hcps")}
-                        disabled={saving}
-                    >
-                        Cancel
-                    </Button>
-
-                    <Button
-                        variant="contained"
-                        onClick={handleUpdate}
-                        disabled={saving}
-                    >
-                        {saving ? (
-                            <>
-                                <CircularProgress
-                                    size={20}
-                                    color="inherit"
-                                    sx={{ mr: 1 }}
-                                />
-                                Updating...
-                            </>
-                        ) : (
-                            "Update"
-                        )}
-                    </Button>
-
-                </Box>
-
-            </Paper>
-
-        </Container>
-
+                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+                        <Button variant="outlined" onClick={() => navigate("/hcps")} disabled={saving}>
+                            Cancel
+                        </Button>
+                        <Button variant="contained" onClick={handleUpdate} disabled={saving}>
+                            {saving ? <CircularProgress size={20} color="inherit" /> : "Update HCP"}
+                        </Button>
+                    </Box>
+                </Stack>
+            </CardContent>
+        </Card>
     );
-
 }

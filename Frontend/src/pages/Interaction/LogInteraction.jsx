@@ -1,361 +1,369 @@
-import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 
 import {
-    Container,
-    Typography,
-    Tabs,
-    Tab,
+    Alert,
     Box,
-    TextField,
+    Card,
+    CardContent,
     Button,
-    Grid,
-    Paper,
     Divider,
-    Alert
+    Grid,
+    MenuItem,
+    Stack,
+    TextField,
+    Typography
 } from "@mui/material";
 
-import { generateAISummary } from "../../services/chatService";
+import AIAssistant from "./AIAssistant";
 import { saveInteraction } from "../../services/interactionService";
+import { getHCPs } from "../../services/hcpService";
+
+const defaultForm = {
+    hcp_id: "",
+    doctor_name: "",
+    type: "Face to Face",
+    visit_date: "",
+    discussion: "",
+    products_discussed: "",
+    sample_given: "No",
+    followup_date: "",
+    remarks: "",
+    summary: "",
+    next_followup: "",
+    sentiment: "Neutral"
+};
 
 export default function LogInteraction() {
-
-    const location = useLocation();
     const navigate = useNavigate();
-    const doctor = location.state?.doctor;
-
-    const [tab, setTab] = useState(0);
-
-    // Structured Form
-    const [doctorName, setDoctorName] = useState(doctor?.doctor_name || "");
-    const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
-    const [discussion, setDiscussion] = useState("");
-    const [products, setProducts] = useState("");
-    const [sampleGiven, setSampleGiven] = useState("");
-    const [followupDate, setFollowupDate] = useState("");
-    const [remarks, setRemarks] = useState("");
-
-    // AI Chat
-    const [conversation, setConversation] = useState("");
-    const [aiResult, setAiResult] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const location = useLocation();
+    const [error, setError] = useState("");
     const [saving, setSaving] = useState(false);
+    const [hcps, setHcps] = useState([]);
+    const [form, setForm] = useState(defaultForm);
 
-    const handleGenerateSummary = async () => {
-        if (!conversation.trim()) {
-            alert("Please enter a conversation.");
-            return;
-        }
+    useEffect(() => {
+        const loadHcps = async () => {
+            try {
+                const data = await getHCPs();
+                setHcps(data);
+            } catch (err) {
+                setError("Unable to load HCP options.");
+            }
+        };
 
-        try {
-            setLoading(true);
-            const result = await generateAISummary(conversation);
-            setAiResult(result);
-        } catch (error) {
-            console.error(error);
-            alert("Failed to generate AI summary.");
-        } finally {
-            setLoading(false);
+        loadHcps();
+    }, []);
+
+    useEffect(() => {
+        const doctor = location.state?.doctor;
+        if (doctor) {
+            setForm((current) => ({
+                ...current,
+                hcp_id: doctor.id,
+                doctor_name: doctor.doctor_name
+            }));
         }
+    }, [location.state]);
+
+    const selectedHcp = useMemo(
+        () => hcps.find((hcp) => String(hcp.id) === String(form.hcp_id)),
+        [hcps, form.hcp_id]
+    );
+
+    const handleChange = (event) => {
+        const { name, value } = event.target;
+        setForm((current) => ({ ...current, [name]: value }));
+    };
+
+    const handleExtract = (data, conversationText) => {
+        setForm((current) => ({
+            ...current,
+            doctor_name: data.doctor_name || current.doctor_name,
+            products_discussed: Array.isArray(data.products_discussed)
+                ? data.products_discussed.join(", ")
+                : data.products_discussed || current.products_discussed,
+            summary: data.summary || current.summary,
+            next_followup: data.next_followup || current.next_followup,
+            sentiment: data.sentiment || current.sentiment,
+            discussion: conversationText
+        }));
     };
 
     const handleSave = async () => {
-        // hcp_id comes only from the doctor passed via navigation state.
-        // If it's missing, the backend will reject the request with a 422
-        // ("hcp_id field required"), so we catch it here first with a
-        // clear, actionable message instead of a raw JSON error dialog.
-        if (!doctor?.id) {
-            alert(
-                "No doctor is linked to this interaction. Please open this page from a doctor's profile page so the doctor is selected automatically."
-            );
+        if (!form.hcp_id) {
+            setError("Please select an HCP first.");
             return;
         }
 
-        if (tab === 0 && !doctorName.trim()) {
-            alert("Please enter the doctor's name.");
-            return;
-        }
-
-        if (tab === 1 && !conversation.trim()) {
-            alert("Please enter a conversation.");
-            return;
-        }
-
-        if (tab === 1 && !aiResult) {
-            alert("Please generate the AI summary before saving.");
-            return;
-        }
-
-        const payload =
-            tab === 0
-                ? {
-                    type: "structured",
-
-                    hcp_id: doctor.id,
-
-                    doctor_name: doctorName,
-
-                    visit_date: visitDate,
-
-                    discussion,
-
-                    products_discussed: products,
-
-                    sample_given: sampleGiven,
-
-                    followup_date: followupDate || null,
-
-                    remarks
-                }
-                : {
-                    type: "ai_chat",
-
-                    hcp_id: doctor.id,
-
-                    // Fall back to the known doctor's name if the AI didn't
-                    // manage to extract one — the backend column is
-                    // NOT NULL, so an empty value here would also 422/500.
-                    doctor_name: aiResult?.doctor_name || doctor?.doctor_name || "Unknown",
-
-                    conversation,
-
-                    products_discussed: aiResult?.products_discussed,
-
-                    summary: aiResult?.summary,
-
-                    next_followup: aiResult?.next_followup,
-
-                    sentiment: aiResult?.sentiment
-                };
+        setError("");
+        setSaving(true);
 
         try {
-            setSaving(true);
-            const response = await saveInteraction(payload);
+            await saveInteraction({
+                hcp_id: Number(form.hcp_id),
+                type: form.type,
+                doctor_name: form.doctor_name,
+                visit_date: form.visit_date || null,
+                discussion: form.discussion,
+                products_discussed: form.products_discussed,
+                sample_given: form.sample_given,
+                followup_date: form.followup_date || null,
+                remarks: form.remarks,
+                conversation: form.discussion,
+                summary: form.summary,
+                next_followup: form.next_followup,
+                sentiment: form.sentiment
+            });
 
-            console.log(response);
-
-            alert("Interaction saved successfully.");
-
-            if (tab === 0) {
-                setDiscussion("");
-                setProducts("");
-                setSampleGiven("");
-                setFollowupDate("");
-                setRemarks("");
-            } else {
-                setConversation("");
-                setAiResult(null);
-            }
+            navigate("/interactions/history");
         } catch (err) {
-            console.error(err);
+            setError("Unable to save the interaction.");
+        } finally {
+            setSaving(false);
+        }
+    };
 
-            // Surface the backend's validation detail instead of a blank
-            // "[object Object]" style alert, and guard against err.response
-            // being undefined (e.g. network errors).
-            const detail = err?.response?.data?.detail;
-            const message = Array.isArray(detail)
-                ? detail.map((d) => `${d.loc?.join(".")}: ${d.msg}`).join("\n")
-                : detail || err.message || "Failed to save interaction.";
+    const handleSaveAndAddAnother = async () => {
+        if (!form.hcp_id) {
+            setError("Please select an HCP first.");
+            return;
+        }
 
-            alert(message);
+        setError("");
+        setSaving(true);
+
+        try {
+            await saveInteraction({
+                hcp_id: Number(form.hcp_id),
+                type: form.type,
+                doctor_name: form.doctor_name,
+                visit_date: form.visit_date || null,
+                discussion: form.discussion,
+                products_discussed: form.products_discussed,
+                sample_given: form.sample_given,
+                followup_date: form.followup_date || null,
+                remarks: form.remarks,
+                conversation: form.discussion,
+                summary: form.summary,
+                next_followup: form.next_followup,
+                sentiment: form.sentiment
+            });
+
+            setForm({
+                ...defaultForm,
+                hcp_id: form.hcp_id,
+                doctor_name: form.doctor_name
+            });
+        } catch (err) {
+            setError("Unable to save the interaction.");
         } finally {
             setSaving(false);
         }
     };
 
     return (
-        <Container maxWidth="lg" sx={{ mt: 4 }}>
-            <Typography variant="h4" fontWeight="bold" gutterBottom>
-                Log Interaction
-            </Typography>
+        <Stack spacing={3}>
+            <Box>
+                <Typography variant="h4" fontWeight={800} gutterBottom>
+                    Log interaction
+                </Typography>
+                <Typography color="text.secondary">
+                    Use AI extraction, then fine-tune the visit details before saving.
+                </Typography>
+            </Box>
 
-            {!doctor && (
-                <Alert severity="warning" sx={{ mb: 3 }}>
-                    No doctor selected. Interactions must be linked to a doctor —
-                    please go back and open this page from a doctor's profile.
-                    <Button size="small" sx={{ ml: 2 }} onClick={() => navigate(-1)}>
-                        Go Back
-                    </Button>
-                </Alert>
-            )}
+            {error && <Alert severity="error">{error}</Alert>}
 
-            <Paper sx={{ p: 3 }}>
-                <Tabs value={tab} onChange={(e, value) => setTab(value)}>
-                    <Tab label="Structured Form" />
-                    <Tab label="AI Chat" />
-                </Tabs>
+            <Box
+                sx={{
+                    display: "grid",
+                    gap: 3,
+                    alignItems: "start",
+                    gridTemplateColumns: {
+                        xs: "1fr",
+                        lg: "minmax(360px, 430px) minmax(0, 1fr)"
+                    }
+                }}
+            >
+                <Box sx={{ minWidth: 0 }}>
+                    <AIAssistant onExtract={handleExtract} />
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                    <Card sx={{ display: "flex", minWidth: 0 }}>
+                        <CardContent sx={{ flex: 1 }}>
+                            <Stack spacing={3} sx={{ height: "100%" }}>
+                                <Box>
+                                    <Typography variant="h6" fontWeight={800}>
+                                        Interaction details
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Save the structured visit record here.
+                                    </Typography>
+                                </Box>
 
-                {/* Structured Form */}
-                {tab === 0 && (
-                    <Box sx={{ mt: 4 }}>
-                        <Grid container spacing={3}>
-                            <Grid item xs={12} md={6}>
                                 <TextField
+                                    select
                                     fullWidth
-                                    label="Doctor Name"
-                                    value={doctorName}
-                                    onChange={(e) => setDoctorName(e.target.value)}
-                                />
-                            </Grid>
+                                    label="Select HCP"
+                                    name="hcp_id"
+                                    value={form.hcp_id}
+                                    onChange={handleChange}
+                                >
+                                    {hcps.map((hcp) => (
+                                        <MenuItem key={hcp.id} value={hcp.id}>
+                                            {hcp.doctor_name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
 
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    label="Visit Date"
-                                    type="date"
-                                    value={visitDate}
-                                    onChange={(e) => setVisitDate(e.target.value)}
-                                    InputLabelProps={{ shrink: true }}
-                                />
-                            </Grid>
+                                {selectedHcp && (
+                                    <Alert severity="info">
+                                        {selectedHcp.specialization || "Specialization not set"} -{" "}
+                                        {selectedHcp.hospital || "Hospital not set"}
+                                    </Alert>
+                                )}
 
-                            {doctor && (
-                                <Grid item xs={12}>
-                                    <Paper variant="outlined" sx={{ p: 2 }}>
-                                        <Typography variant="subtitle1">
-                                            Doctor Details
-                                        </Typography>
-                                        <Divider sx={{ my: 1 }} />
-                                        <Typography>
-                                            <strong>Hospital:</strong> {doctor.hospital}
-                                        </Typography>
-                                        <Typography>
-                                            <strong>City:</strong> {doctor.city}
-                                        </Typography>
-                                        <Typography>
-                                            <strong>Specialization:</strong>{" "}
-                                            {doctor.specialization}
-                                        </Typography>
-                                    </Paper>
+                                <Grid container spacing={2}>
+                                    <Grid item xs={12} md={6}>
+                                        <TextField
+                                            fullWidth
+                                            label="Doctor name"
+                                            name="doctor_name"
+                                            value={form.doctor_name}
+                                            onChange={handleChange}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} md={6}>
+                                        <TextField
+                                            select
+                                            fullWidth
+                                            label="Interaction type"
+                                            name="type"
+                                            value={form.type}
+                                            onChange={handleChange}
+                                        >
+                                            {["Face to Face", "Virtual", "Phone Call", "Email"].map((item) => (
+                                                <MenuItem key={item} value={item}>
+                                                    {item}
+                                                </MenuItem>
+                                            ))}
+                                        </TextField>
+                                    </Grid>
+                                    <Grid item xs={12} md={6}>
+                                        <TextField
+                                            fullWidth
+                                            type="date"
+                                            label="Visit date"
+                                            name="visit_date"
+                                            value={form.visit_date}
+                                            onChange={handleChange}
+                                            InputLabelProps={{ shrink: true }}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} md={6}>
+                                        <TextField
+                                            fullWidth
+                                            type="date"
+                                            label="Follow-up date"
+                                            name="followup_date"
+                                            value={form.followup_date}
+                                            onChange={handleChange}
+                                            InputLabelProps={{ shrink: true }}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            multiline
+                                            minRows={3}
+                                            label="Discussion"
+                                            name="discussion"
+                                            value={form.discussion}
+                                            onChange={handleChange}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            label="Products discussed"
+                                            name="products_discussed"
+                                            value={form.products_discussed}
+                                            onChange={handleChange}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} md={6}>
+                                        <TextField
+                                            select
+                                            fullWidth
+                                            label="Sample given"
+                                            name="sample_given"
+                                            value={form.sample_given}
+                                            onChange={handleChange}
+                                        >
+                                            {["Yes", "No"].map((item) => (
+                                                <MenuItem key={item} value={item}>
+                                                    {item}
+                                                </MenuItem>
+                                            ))}
+                                        </TextField>
+                                    </Grid>
+                                    <Grid item xs={12} md={6}>
+                                        <TextField
+                                            select
+                                            fullWidth
+                                            label="Sentiment"
+                                            name="sentiment"
+                                            value={form.sentiment}
+                                            onChange={handleChange}
+                                        >
+                                            {["Positive", "Neutral", "Negative"].map((item) => (
+                                                <MenuItem key={item} value={item}>
+                                                    {item}
+                                                </MenuItem>
+                                            ))}
+                                        </TextField>
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            multiline
+                                            minRows={3}
+                                            label="Remarks"
+                                            name="remarks"
+                                            value={form.remarks}
+                                            onChange={handleChange}
+                                        />
+                                    </Grid>
                                 </Grid>
-                            )}
 
-                            <Grid item xs={12}>
-                                <TextField
-                                    fullWidth
-                                    multiline
-                                    rows={4}
-                                    label="Discussion"
-                                    value={discussion}
-                                    onChange={(e) => setDiscussion(e.target.value)}
-                                />
-                            </Grid>
+                                <Divider />
 
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    label="Products Discussed"
-                                    value={products}
-                                    onChange={(e) => setProducts(e.target.value)}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    label="Sample Given"
-                                    value={sampleGiven}
-                                    onChange={(e) => setSampleGiven(e.target.value)}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    label="Follow-up Date"
-                                    type="date"
-                                    value={followupDate}
-                                    onChange={(e) => setFollowupDate(e.target.value)}
-                                    InputLabelProps={{ shrink: true }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12}>
-                                <TextField
-                                    fullWidth
-                                    multiline
-                                    rows={3}
-                                    label="Remarks"
-                                    value={remarks}
-                                    onChange={(e) => setRemarks(e.target.value)}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12}>
-                                <Button
-                                    variant="contained"
-                                    onClick={handleSave}
-                                    disabled={saving}
-                                >
-                                    {saving ? "Saving..." : "Save Interaction"}
-                                </Button>
-                            </Grid>
-                        </Grid>
-                    </Box>
-                )}
-
-                {/* AI Chat */}
-                {tab === 1 && (
-                    <Box sx={{ mt: 4 }}>
-                        <TextField
-                            fullWidth
-                            multiline
-                            rows={8}
-                            label="Type your conversation with the doctor..."
-                            value={conversation}
-                            onChange={(e) => setConversation(e.target.value)}
-                        />
-
-                        <Button
-                            variant="contained"
-                            sx={{ mt: 3, mr: 2 }}
-                            onClick={handleGenerateSummary}
-                            disabled={loading}
-                        >
-                            {loading ? "Generating..." : "Generate AI Summary"}
-                        </Button>
-
-                        {aiResult && (
-                            <>
-                                <Paper sx={{ mt: 4, p: 3 }}>
-                                    <Typography variant="h6" gutterBottom>
-                                        AI Generated Summary
-                                    </Typography>
-                                    <Divider sx={{ mb: 2 }} />
-                                    <Typography>
-                                        <strong>Doctor:</strong> {aiResult.doctor_name}
-                                    </Typography>
-                                    <Typography sx={{ mt: 1 }}>
-                                        <strong>Products:</strong>{" "}
-                                        {Array.isArray(aiResult.products_discussed)
-                                            ? aiResult.products_discussed.join(", ")
-                                            : aiResult.products_discussed}
-                                    </Typography>
-                                    <Typography sx={{ mt: 1 }}>
-                                        <strong>Summary:</strong> {aiResult.summary}
-                                    </Typography>
-                                    <Typography sx={{ mt: 1 }}>
-                                        <strong>Follow-up:</strong> {aiResult.next_followup}
-                                    </Typography>
-                                    <Typography sx={{ mt: 1 }}>
-                                        <strong>Sentiment:</strong> {aiResult.sentiment}
-                                    </Typography>
-                                </Paper>
-
-                                <Button
-                                    variant="contained"
-                                    color="success"
-                                    sx={{ mt: 3 }}
-                                    onClick={handleSave}
-                                    disabled={saving}
-                                >
-                                    {saving ? "Saving..." : "Save Interaction"}
-                                </Button>
-                            </>
-                        )}
-                    </Box>
-                )}
-            </Paper>
-        </Container>
+                                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between">
+                                    <Button
+                                        variant="outlined"
+                                        onClick={() => navigate("/interactions/history")}
+                                        disabled={saving}
+                                    >
+                                        View history
+                                    </Button>
+                                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                                        <Button variant="outlined" onClick={() => setForm(defaultForm)} disabled={saving}>
+                                            Reset
+                                        </Button>
+                                        <Button variant="outlined" onClick={handleSaveAndAddAnother} disabled={saving}>
+                                            {saving ? "Saving..." : "Save & Add Another"}
+                                        </Button>
+                                        <Button variant="contained" onClick={handleSave} disabled={saving}>
+                                            {saving ? "Saving..." : "Save Interaction"}
+                                        </Button>
+                                    </Stack>
+                                </Stack>
+                            </Stack>
+                        </CardContent>
+                    </Card>
+                </Box>
+            </Box>
+        </Stack>
     );
 }

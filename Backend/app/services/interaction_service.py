@@ -62,3 +62,49 @@ class InteractionService:
     def get_all_interactions(db: Session):
 
         return db.query(Interaction).all()
+
+    @staticmethod
+    def get_interaction_by_id(db: Session, interaction_id: int):
+        return (
+            db.query(Interaction)
+            .filter(Interaction.id == interaction_id)
+            .first()
+        )
+
+    @staticmethod
+    def update_interaction(
+        db: Session,
+        interaction_id: int,
+        data: InteractionCreate
+    ):
+        interaction = (
+            db.query(Interaction)
+            .filter(Interaction.id == interaction_id)
+            .first()
+        )
+
+        if interaction is None:
+            return None
+
+        products = data.products_discussed
+        if isinstance(products, list):
+            products = ", ".join(products)
+
+        interaction.hcp_id = data.hcp_id
+        interaction.doctor_name = data.doctor_name or "Unknown"
+        interaction.mode = data.type
+        interaction.discussion = data.discussion
+        interaction.products_discussed = products
+        interaction.sample_given = data.sample_given
+        interaction.followup_date = (
+            str(data.followup_date) if data.followup_date else None
+        )
+        interaction.summary = data.summary
+        interaction.notes = data.remarks
+        interaction.next_action = data.next_followup
+        interaction.sentiment = data.sentiment
+
+        db.commit()
+        db.refresh(interaction)
+
+        return interaction

@@ -5,6 +5,7 @@ import api from "./api";
  */
 export const saveInteraction = async (interaction) => {
     try {
+
         const response = await api.post(
             "/interactions/",
             interaction
@@ -35,8 +36,39 @@ export const getAllInteractions = async () => {
 
     } catch (error) {
 
-        console.error("Load Interaction Error:", error);
+        console.error("Load Interactions Error:", error);
 
         throw error;
     }
+};
+
+
+/**
+ * Get Interaction History
+ */
+export const getInteractionHistory = async () => {
+    try {
+
+        const response = await api.get(
+            "/interactions/history"
+        );
+
+        return response.data;
+
+    } catch (error) {
+
+        console.error("Load Interaction History Error:", error);
+
+        throw error;
+    }
+};
+
+export const getInteraction = async (id) => {
+    const response = await api.get(`/interactions/${id}`);
+    return response.data;
+};
+
+export const updateInteraction = async (id, interaction) => {
+    const response = await api.put(`/interactions/${id}`, interaction);
+    return response.data;
 };
